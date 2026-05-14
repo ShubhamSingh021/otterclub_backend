@@ -10,7 +10,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: env.clientOrigin,
+    origin: env.clientOrigin.includes(",") ? env.clientOrigin.split(",") : env.clientOrigin,
     credentials: false,
   })
 );
