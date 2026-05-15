@@ -10,7 +10,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: env.clientOrigin,
+    origin: true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: [
@@ -23,6 +23,10 @@ app.use(
     ],
   })
 );
+app.use((req, res, next) => {
+  console.log(`REQ_LOGGER: ${req.method} ${req.url}`);
+  next();
+});
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));

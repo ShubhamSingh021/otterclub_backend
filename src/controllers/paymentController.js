@@ -5,10 +5,13 @@ import Registration from "../models/Registration.js";
 import Event from "../models/Event.js";
 
 // Initialize Razorpay
+console.log("PAYMENT_DEBUG: Loading Razorpay keys...");
+console.log(`PAYMENT_DEBUG: Key ID starts with: ${process.env.RAZORPAY_KEY_ID?.substring(0, 8)}...`);
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+console.log("PAYMENT_DEBUG: Razorpay instance initialized");
 
 /**
  * @desc    Create Razorpay Order
@@ -16,44 +19,69 @@ const razorpay = new Razorpay({
  * @access  Public (Triggered during registration)
  */
 export const createOrder = async (req, res) => {
+  console.log("PAYMENT_DEBUG: createOrder body:", JSON.stringify(req.body, null, 2));
   try {
-    const { registrationId } = req.body;
+    const { eventId, registrationData } = req.body;
 
-    const registration = await Registration.findById(registrationId).populate("event");
-    if (!registration) {
-      return res.status(404).json({ success: false, message: "Registration not found" });
+    if (!eventId) {
+      console.log("PAYMENT_DEBUG: Missing eventId");
+      return res.status(400).json({ success: false, message: "Missing eventId" });
     }
 
-    const event = registration.event;
+    const event = await Event.findById(eventId);
+    if (!event) {
+      console.log("PAYMENT_DEBUG: Event not found for ID:", eventId);
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    console.log("PAYMENT_DEBUG: Found event:", event.title, "Fee:", event.eventFee);
+
+    // Check if already registered (ONLY APPROVED ONES)
+    const existing = await Registration.findOne({
+      event: eventId,
+      email: registrationData.email.toLowerCase(),
+      registrationStatus: "approved"
+    });
+
+    if (existing) {
+      console.log("PAYMENT_DEBUG: User already registered:", registrationData.email);
+      return res.status(400).json({ success: false, message: "You are already registered for this event" });
+    }
+
     const amount = event.eventFee * 100; // Amount in paise
+    console.log("PAYMENT_DEBUG: Creating Razorpay order for amount:", amount);
 
     const options = {
       amount,
       currency: "INR",
-      receipt: `receipt_${registration._id}`,
+      receipt: `receipt_${Date.now()}`,
     };
 
-    const order = await razorpay.orders.create(options);
+    let order;
+    try {
+      order = await razorpay.orders.create(options);
+      console.log("PAYMENT_DEBUG: Razorpay order created:", order.id);
+    } catch (rzpError) {
+      console.error("PAYMENT_DEBUG: Razorpay API Error:", rzpError);
+      return res.status(500).json({ success: false, message: "Razorpay Error: " + rzpError.message });
+    }
 
-    // Save order ID to registration
-    registration.razorpayOrderId = order.id;
-    await registration.save();
-
-    // Create payment record
+    // Create payment record and store the registration form data temporarily
     await Payment.create({
-      registration: registration._id,
       event: event._id,
       razorpayOrderId: order.id,
       amount: event.eventFee,
       status: "pending",
+      paymentDetails: { registrationData } // Store form data here until payment is verified
     });
+    console.log("PAYMENT_DEBUG: Payment record created");
 
     res.status(200).json({
       success: true,
       order,
     });
   } catch (error) {
-    console.error("Create Order Error:", error);
+    console.error("PAYMENT_DEBUG: General Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -84,25 +112,34 @@ export const verifyPayment = async (req, res) => {
     if (isAuthentic) {
       // Update Payment record
       const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
-      if (payment) {
-        payment.razorpayPaymentId = razorpay_payment_id;
-        payment.razorpaySignature = razorpay_signature;
-        payment.status = "paid";
-        await payment.save();
+      if (!payment) {
+        return res.status(404).json({ success: false, message: "Payment record not found" });
       }
 
-      // Update Registration record
-      const registration = await Registration.findById(registrationId);
-      if (registration) {
-        registration.paymentStatus = "paid";
-        registration.registrationStatus = "approved";
-        await registration.save();
+      payment.razorpayPaymentId = razorpay_payment_id;
+      payment.razorpaySignature = razorpay_signature;
+      payment.status = "paid";
+      await payment.save();
 
-        // Increment event participants
-        await Event.findByIdAndUpdate(registration.event, {
-          $inc: { currentParticipants: 1 }
-        });
-      }
+      // NOW Create the Registration record
+      const registrationData = payment.paymentDetails.registrationData;
+      
+      const registration = await Registration.create({
+        ...registrationData,
+        event: payment.event,
+        razorpayOrderId: razorpay_order_id,
+        paymentStatus: "paid",
+        registrationStatus: "approved"
+      });
+
+      // Link registration back to payment
+      payment.registration = registration._id;
+      await payment.save();
+
+      // Increment event participants
+      await Event.findByIdAndUpdate(payment.event, {
+        $inc: { currentParticipants: 1 }
+      });
 
       res.status(200).json({ success: true, message: "Payment verified successfully" });
     } else {

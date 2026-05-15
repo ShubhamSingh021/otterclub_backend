@@ -5,7 +5,7 @@ const paymentSchema = new mongoose.Schema(
     registration: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Registration",
-      required: true,
+      required: false,
     },
     event: {
       type: mongoose.Schema.Types.ObjectId,

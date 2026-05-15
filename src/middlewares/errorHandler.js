@@ -1,4 +1,5 @@
 export const errorHandler = (err, _req, res, _next) => {
+  console.error("GLOBAL_ERROR_HANDLER:", err);
   const statusCode = err.statusCode || 500;
 
   if (err.name === "ValidationError") {
