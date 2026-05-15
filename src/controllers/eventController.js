@@ -43,6 +43,13 @@ export const updateEvent = async (req, res, next) => {
     }
 
     const updateData = { ...req.body };
+    
+    // Prevent clearing galleryImages if the frontend sends it as empty string/array in req.body
+    // but no new files are uploaded. We only update if files are present.
+    if (updateData.galleryImages === "" || (Array.isArray(updateData.galleryImages) && updateData.galleryImages.length === 0)) {
+      delete updateData.galleryImages;
+    }
+
     if (req.files) {
       if (req.files.eventImage) {
         updateData.eventImage = req.files.eventImage[0].path;

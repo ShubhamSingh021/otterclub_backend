@@ -30,7 +30,7 @@ router.post(
   adminOnly,
   upload.fields([
     { name: "eventImage", maxCount: 1 },
-    { name: "galleryImages", maxCount: 5 },
+    { name: "galleryImages", maxCount: 10 },
   ]),
   createEvent
 );
@@ -40,7 +40,7 @@ router.put(
   adminOnly,
   upload.fields([
     { name: "eventImage", maxCount: 1 },
-    { name: "galleryImages", maxCount: 5 },
+    { name: "galleryImages", maxCount: 10 },
   ]),
   updateEvent
 );

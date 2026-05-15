@@ -10,6 +10,9 @@ import eventRoutes from "./eventRoutes.js";
 import cmsRoutes from "./cmsRoutes.js";
 import registrationRoutes from "./registrationRoutes.js";
 import paymentRoutes from "./paymentRoutes.js";
+import authRoutes from "./authRoutes.js";
+import membershipRoutes from "./membershipRoutes.js";
+import adminMembershipRoutes from "./adminMembershipRoutes.js";
 
 const router = Router();
 
@@ -32,5 +35,8 @@ router.use("/events", eventRoutes);
 router.use("/cms", cmsRoutes);
 router.use("/registrations", registrationRoutes);
 router.use("/payments", paymentRoutes);
+router.use("/auth", authRoutes);
+router.use("/membership", membershipRoutes);
+router.use("/admin/memberships", adminMembershipRoutes);
 
 export default router;

@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import env from "../config/env.js";
 import Admin from "../models/Admin.js";
+import User from "../models/User.js";
 
 export const protect = async (req, res, next) => {
   let token;
@@ -13,8 +14,13 @@ export const protect = async (req, res, next) => {
       // Verify token
       const decoded = jwt.verify(token, env.jwtSecret);
 
-      // Get user from the token
-      req.user = await Admin.findById(decoded.id).select("-password");
+      // Get user from the token (Check Admin first, then User)
+      let user = await Admin.findById(decoded.id).select("-password");
+      if (!user) {
+        user = await User.findById(decoded.id).select("-password").populate("activeMembership");
+      }
+
+      req.user = user;
 
       if (!req.user) {
         return res.status(401).json({ success: false, message: "Not authorized, user not found" });
@@ -30,6 +36,26 @@ export const protect = async (req, res, next) => {
   if (!token) {
     return res.status(401).json({ success: false, message: "Not authorized, no token" });
   }
+};
+
+export const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    try {
+      token = req.headers.authorization.split(" ")[1];
+      const decoded = jwt.verify(token, env.jwtSecret);
+      
+      let user = await Admin.findById(decoded.id).select("-password");
+      if (!user) {
+        user = await User.findById(decoded.id).select("-password").populate("activeMembership");
+      }
+      req.user = user;
+    } catch (error) {
+      console.error("Optional Auth Error:", error);
+    }
+  }
+  next();
 };
 
 export const adminOnly = (req, res, next) => {
