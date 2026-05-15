@@ -45,6 +45,9 @@ const registrationSchema = new mongoose.Schema(
     additionalNotes: {
       type: String,
     },
+    razorpayOrderId: {
+      type: String,
+    },
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "failed"],
@@ -61,8 +64,8 @@ const registrationSchema = new mongoose.Schema(
   }
 );
 
-// Prevent duplicate registration for same email + event
-registrationSchema.index({ event: 1, email: 1 }, { unique: true });
+// Programmatic duplicate check is handled in registrationController.js
+// to allow retries for interrupted payment sessions.
 
 const Registration = mongoose.model("Registration", registrationSchema);
 

@@ -9,6 +9,7 @@ import adminRoutes from "./adminRoutes.js";
 import eventRoutes from "./eventRoutes.js";
 import cmsRoutes from "./cmsRoutes.js";
 import registrationRoutes from "./registrationRoutes.js";
+import paymentRoutes from "./paymentRoutes.js";
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use("/admin", adminRoutes);
 router.use("/events", eventRoutes);
 router.use("/cms", cmsRoutes);
 router.use("/registrations", registrationRoutes);
+router.use("/payments", paymentRoutes);
 
 export default router;

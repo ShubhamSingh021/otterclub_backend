@@ -18,25 +18,43 @@ export const createRegistration = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Registration Closed: Event is full" });
     }
 
-    // Check if already registered
-    const existingRegistration = await Registration.findOne({
+    // Check if already registered and APPROVED
+    const confirmedRegistration = await Registration.findOne({
       event: eventId,
       email: req.body.email.toLowerCase(),
+      registrationStatus: "approved"
     });
 
-    if (existingRegistration) {
+    if (confirmedRegistration) {
+      console.log(`[Registration] Blocked confirmed duplicate for: ${req.body.email}`);
       return res.status(400).json({ success: false, message: "You are already registered for this event" });
     }
 
-    const registration = await Registration.create({
-      ...req.body,
+    // Clean up any old pending/failed registrations for this email+event
+    await Registration.deleteMany({
       event: eventId,
+      email: req.body.email.toLowerCase(),
+      registrationStatus: { $ne: "approved" }
     });
 
-    // Increment current participants
-    event.currentParticipants += 1;
-    await event.save();
+    // Create new registration record
+    const registration = new Registration({
+      ...req.body,
+      event: eventId,
+      registrationStatus: event.eventFee > 0 ? "registered" : "approved",
+      paymentStatus: event.eventFee > 0 ? "pending" : "paid",
+    });
 
+    await registration.save();
+
+    // Increment participants for FREE events immediately
+    if (event.eventFee === 0) {
+      await Event.findByIdAndUpdate(eventId, {
+        $inc: { currentParticipants: 1 }
+      });
+    }
+
+    console.log(`[Registration] Success for ${req.body.email}`);
     return res.status(201).json({
       success: true,
       data: registration,
