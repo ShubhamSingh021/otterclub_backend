@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const cardSchema = new mongoose.Schema(
   {
-    title: { type: String, trim: true, required: true },
+    title: { type: String, trim: true, default: "" },
     description: { type: String, trim: true, default: "" },
     meta: { type: String, trim: true, default: "" },
     imageUrl: { type: String, trim: true, default: "" },
@@ -21,7 +21,7 @@ const homeSectionSchema = new mongoose.Schema(
       index: true,
     },
     sectionLabel: { type: String, trim: true, default: "" },
-    title: { type: String, trim: true, required: true },
+    title: { type: String, trim: true, default: "" },
     subtitle: { type: String, trim: true, default: "" },
     body: { type: String, trim: true, default: "" },
     cards: { type: [cardSchema], default: [] },

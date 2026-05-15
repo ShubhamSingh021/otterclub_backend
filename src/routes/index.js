@@ -7,6 +7,8 @@ import siteSettingsRoutes from "./siteSettingsRoutes.js";
 import testimonialRoutes from "./testimonialRoutes.js";
 import adminRoutes from "./adminRoutes.js";
 import eventRoutes from "./eventRoutes.js";
+import cmsRoutes from "./cmsRoutes.js";
+import registrationRoutes from "./registrationRoutes.js";
 
 const router = Router();
 
@@ -26,5 +28,7 @@ router.use("/testimonials", testimonialRoutes);
 router.use("/home-sections", homeSectionRoutes);
 router.use("/admin", adminRoutes);
 router.use("/events", eventRoutes);
+router.use("/cms", cmsRoutes);
+router.use("/registrations", registrationRoutes);
 
 export default router;

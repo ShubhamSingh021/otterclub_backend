@@ -164,6 +164,29 @@ export const getEvents = async (req, res, next) => {
   }
 };
 
+// @desc    Get single event by ID
+// @route   GET /api/v1/events/id/:id
+// @access  Public
+export const getEventById = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: event,
+    });
+  } catch (error) {
+    if (typeof next === "function") {
+      return next(error);
+    }
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get single event by slug
 // @route   GET /api/v1/events/:slug
 // @access  Public
@@ -205,18 +228,20 @@ export const getFeaturedEvents = async (req, res, next) => {
 // @desc    Get upcoming events
 // @route   GET /api/v1/events/upcoming
 // @access  Public
-export const getUpcomingEvents = async (req, res, next) => {
+export const getUpcomingEvents = async (_req, res, next) => {
   try {
     const events = await Event.find({
-      status: "upcoming",
+      status: { $regex: /^upcoming$/i },
       isVisible: true,
-      eventDate: { $gte: new Date() },
     })
       .sort({ eventDate: 1 })
-      .limit(6);
+      .limit(10)
+      .lean();
 
+    console.log("EVENTS_DEBUG: Found upcoming events count:", events.length);
     return res.status(200).json({ success: true, data: events });
   } catch (error) {
+    console.error("Get Upcoming Events Error:", error);
     if (typeof next === "function") {
       return next(error);
     }

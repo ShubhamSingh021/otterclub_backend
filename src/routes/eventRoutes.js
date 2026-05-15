@@ -4,6 +4,7 @@ import {
   updateEvent,
   deleteEvent,
   getEvents,
+  getEventById,
   getEventBySlug,
   getFeaturedEvents,
   getUpcomingEvents,
@@ -19,6 +20,7 @@ const router = express.Router();
 router.get("/", getEvents);
 router.get("/featured", getFeaturedEvents);
 router.get("/upcoming", getUpcomingEvents);
+router.get("/id/:id", getEventById);
 router.get("/:slug", getEventBySlug);
 
 // Admin routes (Protected)
