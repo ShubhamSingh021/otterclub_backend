@@ -1,6 +1,63 @@
 import Membership from "../models/Membership.js";
 import User from "../models/User.js";
 import { checkExpiredMemberships } from "../utils/membershipUtils.js";
+import { sendMembershipPurchaseEmail } from "../utils/emailUtils.js";
+
+
+
+// @desc    Refund membership
+// @route   PATCH /api/v1/admin/memberships/:id/refund
+// @access  Private/Admin
+export const refundMembership = async (req, res, next) => {
+  try {
+    const membership = await Membership.findById(req.params.id);
+
+    if (!membership) {
+      res.status(404);
+      throw new Error("Membership not found");
+    }
+
+    membership.paymentStatus = "refunded";
+    membership.membershipStatus = "cancelled";
+    await membership.save();
+
+    await User.findByIdAndUpdate(membership.user, {
+      activeMembership: null,
+      role: "user",
+    });
+
+    res.status(200).json({
+      success: true,
+      data: membership,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Resend confirmation email
+// @route   POST /api/v1/admin/memberships/:id/resend-email
+// @access  Private/Admin
+export const resendConfirmationEmail = async (req, res, next) => {
+  try {
+    const membership = await Membership.findById(req.params.id).populate("user");
+
+    if (!membership) {
+      res.status(404);
+      throw new Error("Membership not found");
+    }
+
+    await sendMembershipPurchaseEmail(membership.user, membership);
+
+    res.status(200).json({
+      success: true,
+      message: "Confirmation email resent",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 // @desc    Get all memberships
 // @route   GET /api/v1/admin/memberships

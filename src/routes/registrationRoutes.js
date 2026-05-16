@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createRegistration,
   getRegistrations,
+  getMyRegistrations,
   updateRegistrationStatus,
   deleteRegistration,
 } from "../controllers/registrationController.js";
@@ -9,8 +10,9 @@ import { protect, adminOnly } from "../middlewares/authMiddleware.js";
 
 const router = Router();
 
-// Public route
+// User routes
 router.post("/", createRegistration);
+router.get("/my", protect, getMyRegistrations);
 
 // Admin routes
 router.get("/admin", protect, adminOnly, getRegistrations);

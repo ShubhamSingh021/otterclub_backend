@@ -7,7 +7,8 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seed/seed.js",
-    "seed:admin": "node src/seed/adminSeed.js"
+    "seed:admin": "node src/seed/adminSeed.js",
+    "seed:events": "node src/seed/eventSeed.js"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,6 @@
 import Registration from "../models/Registration.js";
 import Event from "../models/Event.js";
+import { sendRegistrationConfirmationEmail } from "../utils/emailUtils.js";
 
 // @desc    Register for an event
 // @route   POST /api/v1/registrations
@@ -16,6 +17,23 @@ export const createRegistration = async (req, res, next) => {
     // Check capacity
     if (event.currentParticipants >= event.maxParticipants) {
       return res.status(400).json({ success: false, message: "Registration Closed: Event is full" });
+    }
+
+    // Calculate dynamic fee based on membership
+    let finalFee = event.eventFee;
+    let discountAmount = 0;
+    let membershipType = "NONE";
+
+    if (req.user && req.user.role === "member" && req.user.activeMembership) {
+      const membership = req.user.activeMembership;
+      membershipType = membership.membershipType;
+
+      if (membershipType === "ELITE") {
+        discountAmount = Math.round(event.eventFee * 0.1);
+      } else if (membershipType === "PRO") {
+        discountAmount = Math.round(event.eventFee * 0.2);
+      }
+      finalFee = event.eventFee - discountAmount;
     }
 
     // Check if already registered and APPROVED
@@ -41,23 +59,32 @@ export const createRegistration = async (req, res, next) => {
     const registration = new Registration({
       ...req.body,
       event: eventId,
-      registrationStatus: event.eventFee > 0 ? "registered" : "approved",
-      paymentStatus: event.eventFee > 0 ? "pending" : "paid",
+      originalPrice: event.eventFee,
+      discountedPrice: finalFee,
+      membershipType: membershipType,
+      registrationStatus: finalFee > 0 ? "registered" : "approved",
+      paymentStatus: finalFee > 0 ? "pending" : "paid",
     });
 
     await registration.save();
 
     // Increment participants for FREE events immediately
-    if (event.eventFee === 0) {
+    if (finalFee === 0) {
       await Event.findByIdAndUpdate(eventId, {
         $inc: { currentParticipants: 1 }
       });
+      await sendRegistrationConfirmationEmail(registration, event);
     }
 
-    console.log(`[Registration] Success for ${req.body.email}`);
+    console.log(`[Registration] Success for ${req.body.email} (Fee: ${finalFee})`);
     return res.status(201).json({
       success: true,
       data: registration,
+      summary: {
+        originalPrice: event.eventFee,
+        discountedPrice: finalFee,
+        discountApplied: discountAmount
+      }
     });
   } catch (error) {
     console.error("Create Registration Error:", error);
@@ -152,3 +179,23 @@ export const deleteRegistration = async (req, res, next) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Get my registrations
+// @route   GET /api/v1/registrations/my
+// @access  Private
+export const getMyRegistrations = async (req, res, next) => {
+  try {
+    const registrations = await Registration.find({ email: req.user.email.toLowerCase() })
+      .populate("event", "title eventDate bannerImage")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: registrations.length,
+      data: registrations,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+

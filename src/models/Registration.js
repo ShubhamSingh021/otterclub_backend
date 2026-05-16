@@ -58,6 +58,18 @@ const registrationSchema = new mongoose.Schema(
       enum: ["registered", "approved", "cancelled"],
       default: "registered",
     },
+    originalPrice: {
+      type: Number,
+      default: 0,
+    },
+    discountedPrice: {
+      type: Number,
+      default: 0,
+    },
+    membershipType: {
+      type: String,
+      default: "NONE",
+    },
   },
   {
     timestamps: true,

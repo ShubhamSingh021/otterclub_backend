@@ -4,6 +4,7 @@ import Payment from "../models/Payment.js";
 import Registration from "../models/Registration.js";
 import Event from "../models/Event.js";
 import User from "../models/User.js";
+import { sendRegistrationConfirmationEmail } from "../utils/emailUtils.js";
 
 // Initialize Razorpay
 console.log("PAYMENT_DEBUG: Loading Razorpay keys...");
@@ -96,7 +97,8 @@ export const createOrder = async (req, res) => {
       paymentDetails: { 
         registrationData,
         discountApplied,
-        originalFee: event.eventFee
+        originalFee: event.eventFee,
+        membershipType: req.user && req.user.activeMembership ? req.user.activeMembership.membershipType : "NONE"
       }
     });
     console.log("PAYMENT_DEBUG: Payment record created");
@@ -167,7 +169,10 @@ export const verifyPayment = async (req, res) => {
         event: payment.event,
         razorpayOrderId: razorpay_order_id,
         paymentStatus: "paid",
-        registrationStatus: "approved"
+        registrationStatus: "approved",
+        originalPrice: payment.paymentDetails.originalFee,
+        discountedPrice: payment.amount,
+        membershipType: payment.paymentDetails.membershipType
       });
       console.log("PAYMENT_DEBUG: Registration created:", registration._id);
 
@@ -176,10 +181,13 @@ export const verifyPayment = async (req, res) => {
       await payment.save();
 
       // Increment event participants
-      await Event.findByIdAndUpdate(payment.event, {
+      const event = await Event.findByIdAndUpdate(payment.event, {
         $inc: { currentParticipants: 1 }
       });
       console.log("PAYMENT_DEBUG: Event participant count incremented");
+
+      // Send email
+      await sendRegistrationConfirmationEmail(registration, event);
 
       res.status(200).json({ success: true, message: "Payment verified and registration complete" });
     } else {
