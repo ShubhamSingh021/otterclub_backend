@@ -13,6 +13,7 @@ import paymentRoutes from "./paymentRoutes.js";
 import authRoutes from "./authRoutes.js";
 import membershipRoutes from "./membershipRoutes.js";
 import adminMembershipRoutes from "./adminMembershipRoutes.js";
+import planRoutes from "./planRoutes.js";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use("/payments", paymentRoutes);
 router.use("/auth", authRoutes);
 router.use("/membership", membershipRoutes);
 router.use("/admin/memberships", adminMembershipRoutes);
+router.use("/plans", planRoutes);
 
 export default router;

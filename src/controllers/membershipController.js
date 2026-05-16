@@ -2,6 +2,7 @@ import Razorpay from "razorpay";
 import env from "../config/env.js";
 import Membership from "../models/Membership.js";
 import User from "../models/User.js";
+import MembershipPlan from "../models/MembershipPlan.js";
 import crypto from "crypto";
 import { 
   sendMembershipPurchaseEmail, 
@@ -14,37 +15,6 @@ const razorpay = new Razorpay({
   key_secret: env.razorpayKeySecret,
 });
 
-const PLANS = {
-  BASIC: {
-    name: "BASIC",
-    price: 299,
-    benefits: ["Access to regular events", "Community access", "Basic support"],
-  },
-  ELITE: {
-    name: "ELITE",
-    price: 799,
-    benefits: [
-      "Everything in Basic",
-      "Priority event registration",
-      "10% discount on paid events",
-      "Premium support",
-      "Elite badge",
-    ],
-  },
-  PRO: {
-    name: "PRO",
-    price: 1499,
-    benefits: [
-      "Everything in Elite",
-      "20% event discount",
-      "Exclusive members-only events",
-      "Pro badge",
-      "VIP support",
-      "Early access booking",
-    ],
-  },
-};
-
 // @desc    Create a membership order (including upgrades and renewals)
 // @route   POST /api/v1/membership/create-order
 // @access  Private
@@ -52,12 +22,13 @@ export const createMembershipOrder = async (req, res, next) => {
   try {
     const { planType, isUpgrade, isRenewal } = req.body;
 
-    if (!PLANS[planType]) {
+    const plan = await MembershipPlan.findOne({ name: planType, active: true });
+
+    if (!plan) {
       res.status(400);
-      throw new Error("Invalid membership plan");
+      throw new Error("Invalid or inactive membership plan");
     }
 
-    const plan = PLANS[planType];
     const user = await User.findById(req.user._id).populate("activeMembership");
     const activeMembership = user.activeMembership;
 
@@ -69,14 +40,10 @@ export const createMembershipOrder = async (req, res, next) => {
         throw new Error("No active membership found to upgrade");
       }
 
-      // Validate upgrade path
-      const planHierarchy = ["BASIC", "ELITE", "PRO"];
-      const currentLevel = planHierarchy.indexOf(activeMembership.membershipType);
-      const targetLevel = planHierarchy.indexOf(planType);
-
-      if (targetLevel <= currentLevel) {
+      // Check if target plan is actually an upgrade
+      if (plan.price <= activeMembership.price) {
         res.status(400);
-        throw new Error("You can only upgrade to a higher plan");
+        throw new Error("Target plan must have a higher price for an upgrade");
       }
 
       // Calculate difference
@@ -115,7 +82,9 @@ export const createMembershipOrder = async (req, res, next) => {
       success: true,
       order,
       plan: {
-        ...plan,
+        name: plan.name,
+        price: plan.price,
+        benefits: plan.benefits,
         finalPrice: finalAmount,
       },
     });
@@ -138,7 +107,12 @@ export const verifyMembershipPayment = async (req, res, next) => {
       .digest("hex");
 
     if (razorpay_signature === expectedSign) {
-      const plan = PLANS[planType];
+      const plan = await MembershipPlan.findOne({ name: planType });
+      if (!plan) {
+        res.status(404);
+        throw new Error("Plan not found");
+      }
+
       const user = await User.findById(req.user._id).populate("activeMembership");
       
       let membership;
@@ -254,9 +228,14 @@ export const getMembershipHistory = async (req, res, next) => {
 // @route   GET /api/v1/membership/plans
 // @access  Public
 export const getPlans = async (req, res, next) => {
-  res.status(200).json({
-    success: true,
-    data: PLANS,
-  });
+  try {
+    const plans = await MembershipPlan.find({ active: true }).sort({ displayOrder: 1 });
+    res.status(200).json({
+      success: true,
+      data: plans,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
