@@ -29,6 +29,14 @@ const env = {
   },
   razorpayKeyId: process.env.RAZORPAY_KEY_ID,
   razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
+  smtp: {
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    user: process.env.SMTP_EMAIL,
+    pass: process.env.SMTP_PASSWORD,
+    fromEmail: process.env.FROM_EMAIL,
+    fromName: process.env.FROM_NAME || "Otter Society",
+  },
 };
 
 export default env;

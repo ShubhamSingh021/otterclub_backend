@@ -14,6 +14,7 @@ import authRoutes from "./authRoutes.js";
 import membershipRoutes from "./membershipRoutes.js";
 import adminMembershipRoutes from "./adminMembershipRoutes.js";
 import planRoutes from "./planRoutes.js";
+import userRoutes from "./userRoutes.js";
 
 const router = Router();
 
@@ -40,5 +41,6 @@ router.use("/auth", authRoutes);
 router.use("/membership", membershipRoutes);
 router.use("/admin/memberships", adminMembershipRoutes);
 router.use("/plans", planRoutes);
+router.use("/user", userRoutes);
 
 export default router;

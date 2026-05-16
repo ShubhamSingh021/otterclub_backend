@@ -1,7 +1,9 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import Admin from "../models/Admin.js";
 import User from "../models/User.js";
 import env from "../config/env.js";
+import { sendPasswordResetEmail } from "../utils/emailUtils.js";
 
 // @desc    Register a user
 // @route   POST /api/v1/auth/register
@@ -124,9 +126,16 @@ export const updateUserProfile = async (req, res, next) => {
     if (user) {
       console.log("PROFILE_UPDATE: Found user in collection:", is_admin ? "Admin" : "User");
       
-      // Update fields
-      user.name = req.body.name || user.name;
-      user.phone = req.body.phone || user.phone;
+      // Update fields with logging
+      if (req.body.name) {
+        console.log(`PROFILE_UPDATE: Changing name from "${user.name}" to "${req.body.name}"`);
+        user.name = req.body.name;
+      }
+      
+      if (req.body.phone !== undefined) {
+        console.log(`PROFILE_UPDATE: Changing phone from "${user.phone}" to "${req.body.phone}"`);
+        user.phone = req.body.phone;
+      }
       
       if (req.file) {
         console.log("PROFILE_UPDATE: Setting new avatar from file:", req.file.path);
@@ -189,6 +198,83 @@ export const updateUserProfile = async (req, res, next) => {
   } catch (error) {
     console.error("PROFILE_UPDATE_ERROR:", error);
     return res.status(500).json({ success: false, message: error.message || "Server Error" });
+  }
+};
+
+// @desc    Forgot password
+// @route   POST /api/v1/auth/forgot-password
+// @access  Public
+export const forgotPassword = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ email: req.body.email });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "There is no user with that email" });
+    }
+
+    // Get reset token
+    const resetToken = user.getResetPasswordToken();
+
+    await user.save({ validateBeforeSave: false });
+
+    // Create reset URL (Frontend URL)
+    const resetUrl = `${env.clientOrigin[0]}/reset-password/${resetToken}`;
+
+    try {
+      await sendPasswordResetEmail(user, resetUrl);
+      
+      res.status(200).json({ success: true, data: "Email sent" });
+    } catch (err) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({ success: false, message: "Email could not be sent" });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Reset password
+// @route   POST /api/v1/auth/reset-password/:resetToken
+// @access  Public
+export const resetPassword = async (req, res, next) => {
+  try {
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(req.params.resetToken)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid or expired token" });
+    }
+
+    // Set new password
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      token: generateToken(user._id),
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      }
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
