@@ -18,8 +18,15 @@ export const errorHandler = (err, _req, res, _next) => {
     });
   }
 
+  let message = err.message || "Internal server error";
+  
+  // Extract message from Razorpay error object if present
+  if (err.error && err.error.description) {
+    message = err.error.description;
+  }
+
   return res.status(statusCode).json({
     success: false,
-    message: err.message || "Internal server error",
+    message,
   });
 };

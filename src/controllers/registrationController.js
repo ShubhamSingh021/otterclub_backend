@@ -186,7 +186,7 @@ export const deleteRegistration = async (req, res, next) => {
 export const getMyRegistrations = async (req, res, next) => {
   try {
     const registrations = await Registration.find({ email: req.user.email.toLowerCase() })
-      .populate("event", "title eventDate bannerImage")
+      .populate("event", "title eventDate eventImage")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({

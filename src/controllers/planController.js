@@ -50,21 +50,25 @@ export const createPlan = async (req, res, next) => {
 // @access  Private/Admin
 export const updatePlan = async (req, res, next) => {
   try {
+    console.log(`PLAN_UPDATE: Updating plan ${req.params.id}`, req.body);
     const plan = await MembershipPlan.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
     });
 
     if (!plan) {
+      console.warn(`PLAN_UPDATE_WARN: Plan ${req.params.id} not found`);
       res.status(404);
       throw new Error("Plan not found");
     }
 
+    console.log(`PLAN_UPDATE_SUCCESS: Plan ${req.params.id} updated`);
     res.status(200).json({
       success: true,
       data: plan,
     });
   } catch (error) {
+    console.error("PLAN_UPDATE_ERROR:", error);
     next(error);
   }
 };
@@ -74,20 +78,24 @@ export const updatePlan = async (req, res, next) => {
 // @access  Private/Admin
 export const deletePlan = async (req, res, next) => {
   try {
+    console.log(`PLAN_DELETE: Attempting to delete plan ${req.params.id}`);
     const plan = await MembershipPlan.findById(req.params.id);
 
     if (!plan) {
+      console.warn(`PLAN_DELETE_WARN: Plan ${req.params.id} not found`);
       res.status(404);
       throw new Error("Plan not found");
     }
 
     await plan.deleteOne();
+    console.log(`PLAN_DELETE_SUCCESS: Plan ${req.params.id} deleted`);
 
     res.status(200).json({
       success: true,
       message: "Plan removed",
     });
   } catch (error) {
+    console.error("PLAN_DELETE_ERROR:", error);
     next(error);
   }
 };

@@ -21,15 +21,26 @@ const razorpay = new Razorpay({
 export const createMembershipOrder = async (req, res, next) => {
   try {
     const { planType, isUpgrade, isRenewal } = req.body;
-
+    console.log("ORDER_CREATE: Received request for plan:", planType);
     const plan = await MembershipPlan.findOne({ name: planType, active: true });
 
     if (!plan) {
+      console.warn("ORDER_CREATE_WARN: Plan not found or inactive:", planType);
       res.status(400);
       throw new Error("Invalid or inactive membership plan");
     }
 
     const user = await User.findById(req.user._id).populate("activeMembership");
+    
+    if (!user) {
+      console.log("ORDER_CREATE_INFO: User not found in User collection (likely an Admin)");
+      return res.status(400).json({ 
+        success: false, 
+        message: "Only normal users can purchase memberships. If you are an admin, please use a user account for testing." 
+      });
+    }
+
+    console.log("ORDER_CREATE: User found, calculating amount...");
     const activeMembership = user.activeMembership;
 
     let finalAmount = plan.price;
@@ -68,7 +79,7 @@ export const createMembershipOrder = async (req, res, next) => {
     const options = {
       amount: Math.round(finalAmount * 100), // amount in the smallest currency unit
       currency: "INR",
-      receipt: `membership_${req.user._id}_${Date.now()}`,
+      receipt: `ms_${req.user._id.toString().slice(-8)}_${Date.now()}`,
       notes: {
         planType,
         isUpgrade: isUpgrade ? "yes" : "no",
@@ -137,9 +148,9 @@ export const verifyMembershipPayment = async (req, res, next) => {
       } else if (isRenewal && user.activeMembership) {
         membership = user.activeMembership;
         
-        // Extend expiry by 30 days
+        // Extend expiry by plan's validity days
         const currentExpiry = new Date(membership.expiryDate);
-        currentExpiry.setDate(currentExpiry.getDate() + 30);
+        currentExpiry.setDate(currentExpiry.getDate() + (plan.validityDays || 30));
         membership.expiryDate = currentExpiry;
         membership.razorpayPaymentId = razorpay_payment_id;
         membership.membershipStatus = "active";
@@ -150,7 +161,7 @@ export const verifyMembershipPayment = async (req, res, next) => {
         // Create new membership record
         const startDate = new Date();
         const expiryDate = new Date();
-        expiryDate.setMonth(expiryDate.getMonth() + 1);
+        expiryDate.setDate(expiryDate.getDate() + (plan.validityDays || 30));
 
         membership = await Membership.create({
           user: req.user._id,

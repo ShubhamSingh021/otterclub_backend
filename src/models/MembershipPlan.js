@@ -29,6 +29,11 @@ const membershipPlanSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    validityDays: {
+      type: Number,
+      default: 30,
+      min: 1,
+    },
     displayOrder: {
       type: Number,
       default: 0,

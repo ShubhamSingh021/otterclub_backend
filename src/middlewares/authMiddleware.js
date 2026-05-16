@@ -23,13 +23,14 @@ export const protect = async (req, res, next) => {
       req.user = user;
 
       if (!req.user) {
+        console.warn(`AUTH_FAILURE: Token valid but User ID ${decoded.id} not found in DB`);
         return res.status(401).json({ success: false, message: "Not authorized, user not found" });
       }
 
       return next();
     } catch (error) {
-      console.error(error);
-      return res.status(401).json({ success: false, message: "Not authorized, token failed" });
+      console.error("JWT_ERROR:", error.message);
+      return res.status(401).json({ success: false, message: `Not authorized, token failed: ${error.message}` });
     }
   }
 

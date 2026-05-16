@@ -1,100 +1,103 @@
 import jwt from "jsonwebtoken";
-import env from "../config/env.js";
-import User from "../models/User.js";
 import Admin from "../models/Admin.js";
-import { checkExpiredMemberships } from "../utils/membershipUtils.js";
+import User from "../models/User.js";
+import env from "../config/env.js";
 
-// @desc    Register a new user
+// @desc    Register a user
 // @route   POST /api/v1/auth/register
 // @access  Public
 export const registerUser = async (req, res, next) => {
   try {
     const { name, email, password, phone } = req.body;
 
-    const userExists = await User.findOne({ email });
-
-    if (userExists) {
-      res.status(400);
-      throw new Error("User already exists");
+    // Check if user exists in User collection
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ success: false, message: "User already exists" });
     }
 
-    const user = await User.create({
+    // Check if user exists in Admin collection
+    let admin = await Admin.findOne({ email });
+    if (admin) {
+      return res.status(400).json({ success: false, message: "Email already registered as admin" });
+    }
+
+    user = await User.create({
       name,
       email,
       password,
       phone,
     });
 
-    if (user) {
-      res.status(201).json({
-        success: true,
-        data: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          token: generateToken(user._id),
-        },
-      });
-    } else {
-      res.status(400);
-      throw new Error("Invalid user data");
-    }
+    res.status(201).json({
+      success: true,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+      token: generateToken(user._id),
+    });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Auth user & get token
+// @desc    Login user/admin
 // @route   POST /api/v1/auth/login
 // @access  Public
 export const loginUser = async (req, res, next) => {
   try {
-    await checkExpiredMemberships();
-    const { email, password } = req.body;
+    const { email, password, isAdmin } = req.body;
 
-    const user = await User.findOne({ email }).select("+password").populate("activeMembership");
-
-    if (user && (await user.matchPassword(password))) {
-      res.json({
-        success: true,
-        data: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          role: user.role,
-          activeMembership: user.activeMembership,
-          token: generateToken(user._id),
-        },
-      });
+    let user;
+    if (isAdmin) {
+      user = await Admin.findOne({ email }).select("+password");
     } else {
-      res.status(401);
-      throw new Error("Invalid email or password");
+      user = await User.findOne({ email }).select("+password").populate("activeMembership");
     }
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    const userData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      phone: user.phone,
+      activeMembership: user.activeMembership || null,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: userData,
+      token: generateToken(user._id),
+    });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get user profile
-// @route   GET /api/v1/auth/profile
+// @desc    Get current user
+// @route   GET /api/v1/auth/me
 // @access  Private
 export const getUserProfile = async (req, res, next) => {
   try {
-    await checkExpiredMemberships();
-    const user = await User.findById(req.user._id).populate("activeMembership");
-
-    if (user) {
-      res.json({
-        success: true,
-        data: user,
-      });
-    } else {
-      res.status(404);
-      throw new Error("User not found");
-    }
+    // req.user is already populated by protect middleware
+    res.status(200).json({
+      success: true,
+      data: req.user,
+    });
   } catch (error) {
     next(error);
   }
@@ -105,6 +108,10 @@ export const getUserProfile = async (req, res, next) => {
 // @access  Private
 export const updateUserProfile = async (req, res, next) => {
   try {
+    console.log("PROFILE_UPDATE: Received request for user ID:", req.user._id);
+    console.log("PROFILE_UPDATE: Body:", { ...req.body, password: req.body.password ? "********" : undefined });
+    console.log("PROFILE_UPDATE: File:", req.file ? "File present" : "No file");
+
     // Check if user exists in either collection
     let user = await User.findById(req.user._id);
     let is_admin = false;
@@ -115,50 +122,73 @@ export const updateUserProfile = async (req, res, next) => {
     }
 
     if (user) {
+      console.log("PROFILE_UPDATE: Found user in collection:", is_admin ? "Admin" : "User");
+      
       // Update fields
       user.name = req.body.name || user.name;
       user.phone = req.body.phone || user.phone;
       
       if (req.file) {
+        console.log("PROFILE_UPDATE: Setting new avatar from file:", req.file.path);
         user.avatar = req.file.path; // Cloudinary URL
       } else if (req.body.avatar) {
+        console.log("PROFILE_UPDATE: Setting avatar from body:", req.body.avatar);
         user.avatar = req.body.avatar;
       }
 
       if (req.body.password) {
+        console.log("PROFILE_UPDATE: Updating password");
         user.password = req.body.password;
       }
 
-      const updatedUser = await user.save();
-      
-      // Fetch fresh data with population
-      let populatedUser;
-      if (is_admin) {
-        populatedUser = await Admin.findById(updatedUser._id);
-      } else {
-        populatedUser = await User.findById(updatedUser._id).populate("activeMembership");
+      // Save changes
+      console.log("PROFILE_UPDATE: Saving user...");
+      try {
+        await user.save();
+        console.log("PROFILE_UPDATE: User saved successfully");
+      } catch (saveError) {
+        console.error("PROFILE_UPDATE_SAVE_ERROR:", saveError);
+        return res.status(400).json({ success: false, message: saveError.message });
       }
 
-      res.json({
+      // Re-fetch populated user (Handle both User and Admin)
+      let populatedUser;
+      if (is_admin) {
+        populatedUser = await Admin.findById(user._id).select("-password");
+      } else {
+        populatedUser = await User.findById(user._id).select("-password").populate("activeMembership");
+      }
+
+      if (!populatedUser) {
+        console.error("PROFILE_UPDATE_ERROR: User not found after update");
+        return res.status(404).json({ success: false, message: "User not found after update" });
+      }
+
+      // Clean data for response
+      const userData = {
+        _id: populatedUser._id,
+        name: populatedUser.name,
+        email: populatedUser.email,
+        phone: populatedUser.phone,
+        role: populatedUser.role,
+        avatar: populatedUser.avatar,
+        activeMembership: populatedUser.activeMembership || null,
+      };
+
+      console.log("PROFILE_UPDATE_SUCCESS: Returning updated user data");
+      return res.status(200).json({
         success: true,
         message: "Profile updated successfully",
-        data: {
-          _id: populatedUser._id,
-          name: populatedUser.name,
-          email: populatedUser.email,
-          phone: populatedUser.phone,
-          role: populatedUser.role,
-          avatar: populatedUser.avatar,
-          activeMembership: populatedUser.activeMembership || null,
-          token: generateToken(populatedUser._id),
-        },
+        data: userData,
+        token: generateToken(populatedUser._id),
       });
     } else {
-      res.status(404).json({ success: false, message: "User not found" });
+      console.warn("PROFILE_UPDATE_WARN: User not found in either collection");
+      return res.status(404).json({ success: false, message: "User not found" });
     }
   } catch (error) {
-    console.error("Update Profile Error:", error);
-    next(error);
+    console.error("PROFILE_UPDATE_ERROR:", error);
+    return res.status(500).json({ success: false, message: error.message || "Server Error" });
   }
 };
 
