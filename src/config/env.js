@@ -5,11 +5,20 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-const requiredEnvVars = ["MONGODB_URI"];
+const requiredEnvVars = [
+  "MONGODB_URI",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_EMAIL",
+  "SMTP_PASSWORD",
+  "FROM_EMAIL"
+];
 
 requiredEnvVars.forEach((key) => {
   if (!process.env[key]) {
-    throw new Error(`Missing required environment variable: ${key}`);
+    console.error(`[CRITICAL] Missing required environment variable: ${key}`);
+    // We don't throw error here to allow the app to start even if email is broken, 
+    // but we will throw error in emailUtils when sending fails.
   }
 });
 

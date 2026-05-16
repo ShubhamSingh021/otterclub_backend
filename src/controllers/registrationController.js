@@ -34,11 +34,13 @@ export const getRegistrationQR = async (req, res, next) => {
   try {
     const registration = await Registration.findById(req.params.id).populate("event");
     if (!registration) {
+      console.error(`TICKET_ERROR: Registration not found for ID: ${req.params.id}`);
       return res.status(404).json({ success: false, message: "Registration not found" });
     }
 
     // Check ownership
-    if (registration.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    if (!registration.user || (registration.user.toString() !== req.user._id.toString() && req.user.role !== 'admin')) {
+      console.error(`TICKET_ERROR: Unauthorized access attempt by user ${req.user._id} for ticket ${req.params.id}. Ticket owner: ${registration.user}`);
       return res.status(403).json({ success: false, message: "Not authorized to view this ticket" });
     }
 
@@ -69,20 +71,32 @@ export const createRegistration = async (req, res, next) => {
     // Generate unique booking ID
     const bookingId = `OC${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
+    console.log(`REGISTRATION_DEBUG: Creating registration for user ${req.user._id} and event ${eventId}`);
+
     const registration = await Registration.create({
       user: req.user._id,
       event: eventId,
-      userName: req.user.name,
-      userEmail: req.user.email,
+      fullName: req.user.name,
+      email: req.user.email,
+      phone: req.user.phone || "N/A",
+      age: req.body.age || 0, // Should be provided in body
+      emergencyContact: req.body.emergencyContact || "N/A", // Should be provided in body
       bookingId,
-      amountPaid: discountedPrice,
-      paymentStatus: "completed",
-      razorpayPaymentId: paymentId,
+      originalPrice: event.eventFee,
       discountedPrice,
+      paymentStatus: "completed",
+      registrationStatus: "approved",
+      razorpayPaymentId: paymentId,
     });
 
+    console.log(`REGISTRATION_SUCCESS: Created registration ${registration._id} with booking ID ${bookingId}`);
+
     // Send confirmation email
-    await sendRegistrationConfirmationEmail(registration, event);
+    try {
+      await sendRegistrationConfirmationEmail(registration, event);
+    } catch (emailError) {
+      console.error(`REGISTRATION_WARN: Email failed but registration succeeded:`, emailError.message);
+    }
 
     res.status(201).json({
       success: true,

@@ -7,6 +7,15 @@ const registrationSchema = new mongoose.Schema(
       ref: "Event",
       required: [true, "Event is required"],
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    bookingId: {
+      type: String,
+      required: [true, "Booking ID is required"],
+      unique: true,
+    },
     fullName: {
       type: String,
       required: [true, "Full name is required"],
@@ -48,9 +57,17 @@ const registrationSchema = new mongoose.Schema(
     razorpayOrderId: {
       type: String,
     },
+    razorpayPaymentId: {
+      type: String,
+    },
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed"],
+      enum: ["pending", "paid", "failed", "completed"],
+      default: "pending",
+    },
+    attendanceStatus: {
+      type: String,
+      enum: ["pending", "attended"],
       default: "pending",
     },
     registrationStatus: {

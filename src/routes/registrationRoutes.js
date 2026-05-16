@@ -15,7 +15,7 @@ import { protect, adminOnly } from "../middlewares/authMiddleware.js";
 const router = Router();
 
 // User routes
-router.post("/", createRegistration);
+router.post("/", protect, createRegistration);
 router.get("/my", protect, getMyRegistrations);
 router.get("/ticket-qr/:id", protect, getRegistrationQR);
 router.get("/certificate/:id", protect, downloadCertificate);

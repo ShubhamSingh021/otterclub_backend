@@ -206,6 +206,7 @@ export const updateUserProfile = async (req, res, next) => {
 // @access  Public
 export const forgotPassword = async (req, res, next) => {
   try {
+    console.log(`[FORGOT_PASSWORD_REQUEST] Email: ${req.body.email}`);
     const user = await User.findOne({ email: req.body.email });
 
     if (!user) {
@@ -225,12 +226,17 @@ export const forgotPassword = async (req, res, next) => {
       
       res.status(200).json({ success: true, data: "Email sent" });
     } catch (err) {
+      console.error("[FORGOT_PASSWORD_ERROR]:", err);
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
 
       await user.save({ validateBeforeSave: false });
 
-      return res.status(500).json({ success: false, message: "Email could not be sent" });
+      const message = process.env.NODE_ENV === "development" 
+        ? `Email could not be sent: ${err.message}` 
+        : "Email could not be sent. Please contact support.";
+        
+      return res.status(500).json({ success: false, message });
     }
   } catch (error) {
     next(error);

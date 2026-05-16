@@ -11,12 +11,20 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Verify connection configuration
+transporter.verify(function (error, success) {
+  if (error) {
+    console.error("[SMTP_VERIFY_ERROR]:", error);
+  } else {
+    console.log("[SMTP_READY]: Server is ready to take our messages");
+  }
+});
+
 const sendEmail = async (options) => {
   if (!env.smtp.host || !env.smtp.user || !env.smtp.pass) {
-    console.warn(`[EMAIL_SKIPPED] SMTP credentials not fully configured. Outputting to console:`);
-    console.log(`To: ${options.to} - Subject: ${options.subject}`);
-    console.log(`Content: ${options.html}`);
-    return;
+    const errorMsg = "SMTP credentials not fully configured. Email cannot be sent.";
+    console.error(`[EMAIL_ERROR] ${errorMsg}`);
+    throw new Error(errorMsg);
   }
 
   const message = {
@@ -26,8 +34,14 @@ const sendEmail = async (options) => {
     html: options.html,
   };
 
-  const info = await transporter.sendMail(message);
-  console.log(`[EMAIL_SENT] Message sent: ${info.messageId}`);
+  try {
+    const info = await transporter.sendMail(message);
+    console.log(`[EMAIL_SENT] Message sent: ${info.messageId} to ${options.to}`);
+    return info;
+  } catch (error) {
+    console.error(`[EMAIL_FAILED] Error sending email to ${options.to}:`, error);
+    throw error;
+  }
 };
 
 export const sendMembershipPurchaseEmail = async (user, membership) => {

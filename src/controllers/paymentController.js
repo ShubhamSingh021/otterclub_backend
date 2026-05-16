@@ -163,11 +163,17 @@ export const verifyPayment = async (req, res) => {
       // NOW Create the Registration record
       const registrationData = payment.paymentDetails.registrationData;
       
-      console.log("PAYMENT_DEBUG: Creating registration for email:", registrationData.email);
+      // Generate unique booking ID
+      const bookingId = `OC${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+      console.log("PAYMENT_DEBUG: Creating registration for email:", registrationData.email, "BookingId:", bookingId);
       const registration = await Registration.create({
         ...registrationData,
+        user: payment.user, // Link the user!
         event: payment.event,
+        bookingId, // Add booking ID!
         razorpayOrderId: razorpay_order_id,
+        razorpayPaymentId: razorpay_payment_id,
         paymentStatus: "paid",
         registrationStatus: "approved",
         originalPrice: payment.paymentDetails.originalFee,
