@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import env from "../config/env.js";
 import User from "../models/User.js";
+import Admin from "../models/Admin.js";
 import { checkExpiredMemberships } from "../utils/membershipUtils.js";
 
 // @desc    Register a new user
@@ -104,9 +105,17 @@ export const getUserProfile = async (req, res, next) => {
 // @access  Private
 export const updateUserProfile = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id);
+    // Check if user exists in either collection
+    let user = await User.findById(req.user._id);
+    let is_admin = false;
+    
+    if (!user) {
+      user = await Admin.findById(req.user._id);
+      is_admin = true;
+    }
 
     if (user) {
+      // Update fields
       user.name = req.body.name || user.name;
       user.phone = req.body.phone || user.phone;
       
@@ -121,10 +130,18 @@ export const updateUserProfile = async (req, res, next) => {
       }
 
       const updatedUser = await user.save();
-      const populatedUser = await User.findById(updatedUser._id).populate("activeMembership");
+      
+      // Fetch fresh data with population
+      let populatedUser;
+      if (is_admin) {
+        populatedUser = await Admin.findById(updatedUser._id);
+      } else {
+        populatedUser = await User.findById(updatedUser._id).populate("activeMembership");
+      }
 
       res.json({
         success: true,
+        message: "Profile updated successfully",
         data: {
           _id: populatedUser._id,
           name: populatedUser.name,
@@ -132,15 +149,15 @@ export const updateUserProfile = async (req, res, next) => {
           phone: populatedUser.phone,
           role: populatedUser.role,
           avatar: populatedUser.avatar,
-          activeMembership: populatedUser.activeMembership,
+          activeMembership: populatedUser.activeMembership || null,
           token: generateToken(populatedUser._id),
         },
       });
     } else {
-      res.status(404);
-      throw new Error("User not found");
+      res.status(404).json({ success: false, message: "User not found" });
     }
   } catch (error) {
+    console.error("Update Profile Error:", error);
     next(error);
   }
 };
