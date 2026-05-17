@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true, required: true },
     email: { type: String, trim: true, required: true, unique: true },
-    password: { type: String, required: true, minlength: 6, select: false },
+    password: { type: String, minlength: 6, select: false },
     phone: { type: String, trim: true },
     role: { type: String, enum: ["user", "member"], default: "user" },
     activeMembership: {
@@ -15,6 +15,13 @@ const userSchema = new mongoose.Schema(
     },
     avatar: { type: String, default: "" },
     isActive: { type: Boolean, default: true },
+    googleId: { type: String, default: "" },
+    authProvider: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+    },
+    emailVerified: { type: Boolean, default: false },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },
@@ -23,7 +30,7 @@ const userSchema = new mongoose.Schema(
 
 // Hash password before saving
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) {
+  if (!this.isModified("password") || !this.password) {
     return;
   }
   const salt = await bcrypt.genSalt(10);

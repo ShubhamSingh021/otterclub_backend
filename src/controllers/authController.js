@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 import Admin from "../models/Admin.js";
 import User from "../models/User.js";
 import env from "../config/env.js";
@@ -326,3 +329,103 @@ const generateToken = (id) => {
     expiresIn: env.jwtExpire,
   });
 };
+
+// @desc    Google OAuth login / signup
+// @route   POST /api/v1/auth/google
+// @access  Public
+export const googleLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+    if (!credential) {
+      return res.status(400).json({ success: false, message: "Google credential is required" });
+    }
+
+    // Verify Google ID token
+    let ticket;
+    try {
+      ticket = await client.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (verifyError) {
+      console.error("GOOGLE_VERIFY_ERROR:", verifyError);
+      return res.status(400).json({ success: false, message: "Invalid Google credential" });
+    }
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture, email_verified } = payload;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Google account does not provide an email" });
+    }
+
+    // 1. Check if user already exists in User collection
+    let user = await User.findOne({ email }).populate("activeMembership");
+
+    if (user) {
+      console.log(`[GOOGLE_LOGIN] Found existing user with email: ${email}. Linking Google account.`);
+      
+      // Safe Account Linking: Update Google fields if they are not already set
+      let modified = false;
+      if (!user.googleId) {
+        user.googleId = googleId;
+        modified = true;
+      }
+      if (user.authProvider !== "google") {
+        user.authProvider = "google";
+        modified = true;
+      }
+      if (!user.avatar) {
+        user.avatar = picture || "";
+        modified = true;
+      }
+      if (user.emailVerified !== email_verified) {
+        user.emailVerified = email_verified || false;
+        modified = true;
+      }
+
+      if (modified) {
+        await user.save({ validateBeforeSave: false });
+        console.log(`[GOOGLE_LOGIN] Google fields updated for user: ${email}`);
+      }
+    } else {
+      console.log(`[GOOGLE_LOGIN] Brand new user. Creating account with email: ${email}`);
+      
+      // Check if email already registered as admin
+      const admin = await Admin.findOne({ email });
+      if (admin) {
+        return res.status(400).json({ success: false, message: "Email already registered as admin" });
+      }
+
+      // Create new Google user
+      user = await User.create({
+        name,
+        email,
+        googleId,
+        authProvider: "google",
+        avatar: picture || "",
+        emailVerified: email_verified || false,
+      });
+    }
+
+    const userData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar,
+      phone: user.phone || "",
+      activeMembership: user.activeMembership || null,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: userData,
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    console.error("GOOGLE_AUTH_CONTROLLER_ERROR:", error);
+    next(error);
+  }
+};
+
