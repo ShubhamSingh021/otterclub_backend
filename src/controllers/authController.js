@@ -3,7 +3,7 @@ import crypto from "crypto";
 import Admin from "../models/Admin.js";
 import User from "../models/User.js";
 import env from "../config/env.js";
-import { sendPasswordResetEmail } from "../utils/emailUtils.js";
+import { sendPasswordResetEmail } from "../utils/emailService.js";
 
 // @desc    Register a user
 // @route   POST /api/v1/auth/register

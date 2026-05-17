@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+// Load env vars
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -7,12 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const requiredEnvVars = [
   "MONGODB_URI",
-  "SMTP_HOST",
-  "SMTP_PORT",
-  "SMTP_EMAIL",
-  "SMTP_PASSWORD",
-  "FROM_EMAIL",
-  "FROM_NAME",
+  "RESEND_API_KEY",
   "CLIENT_ORIGIN"
 ];
 
@@ -20,7 +16,7 @@ requiredEnvVars.forEach((key) => {
   if (!process.env[key]) {
     console.error(`[CRITICAL] Missing required environment variable: ${key}`);
     // We don't throw error here to allow the app to start even if email is broken, 
-    // but we will throw error in emailUtils when sending fails.
+    // but we will throw error in emailService when sending fails.
   }
 });
 
@@ -40,14 +36,9 @@ const env = {
   },
   razorpayKeyId: process.env.RAZORPAY_KEY_ID,
   razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
-  smtp: {
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    user: process.env.SMTP_EMAIL,
-    pass: process.env.SMTP_PASSWORD,
-    fromEmail: process.env.FROM_EMAIL,
-    fromName: process.env.FROM_NAME || "Otter Society",
-  },
+  resendApiKey: process.env.RESEND_API_KEY,
+  fromEmail: process.env.FROM_EMAIL || "onboarding@resend.dev",
+  fromName: process.env.FROM_NAME || "Otter Society",
 };
 
 export default env;
