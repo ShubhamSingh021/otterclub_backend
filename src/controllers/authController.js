@@ -335,6 +335,15 @@ const generateToken = (id) => {
 // @access  Public
 export const googleLogin = async (req, res, next) => {
   try {
+    // Safety check: ensure Google client ID and secret are configured in backend environment
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      console.error("[GOOGLE_AUTH_ERROR]: GOOGLE_CLIENT_ID is not configured in the backend environment variables.");
+      return res.status(500).json({
+        success: false,
+        message: "Google Sign-In is not fully configured on the backend server. Please define GOOGLE_CLIENT_ID in your Render Environment Variables."
+      });
+    }
+
     const { credential } = req.body;
     if (!credential) {
       return res.status(400).json({ success: false, message: "Google credential is required" });
