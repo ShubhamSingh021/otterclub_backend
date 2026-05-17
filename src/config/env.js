@@ -11,7 +11,9 @@ const requiredEnvVars = [
   "SMTP_PORT",
   "SMTP_EMAIL",
   "SMTP_PASSWORD",
-  "FROM_EMAIL"
+  "FROM_EMAIL",
+  "FROM_NAME",
+  "CLIENT_ORIGIN"
 ];
 
 requiredEnvVars.forEach((key) => {

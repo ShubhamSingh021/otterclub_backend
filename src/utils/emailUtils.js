@@ -2,13 +2,16 @@ import nodemailer from "nodemailer";
 import env from "../config/env.js";
 
 const transporter = nodemailer.createTransport({
-  host: env.smtp.host,
-  port: env.smtp.port,
-  secure: env.smtp.port === 465, // true for 465, false for other ports
+  host: env.smtp.host || "smtp.gmail.com",
+  port: Number(env.smtp.port) || 587,
+  secure: false, // TLS/STARTTLS (secure: false for port 587)
   auth: {
     user: env.smtp.user,
     pass: env.smtp.pass,
   },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000,
 });
 
 // Verify connection configuration

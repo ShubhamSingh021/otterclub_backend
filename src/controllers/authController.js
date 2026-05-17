@@ -205,18 +205,22 @@ export const updateUserProfile = async (req, res, next) => {
 // @route   POST /api/v1/auth/forgot-password
 // @access  Public
 export const forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
   try {
-    console.log(`[FORGOT_PASSWORD_REQUEST] Email: ${req.body.email}`);
-    const user = await User.findOne({ email: req.body.email });
+    console.log(`[FORGOT_PASSWORD_LOG] Forgot password request received for email: ${email}`);
+    const user = await User.findOne({ email });
 
     if (!user) {
+      console.warn(`[FORGOT_PASSWORD_LOG] User not found for email: ${email}`);
       return res.status(404).json({ success: false, message: "There is no user with that email" });
     }
 
+    console.log(`[FORGOT_PASSWORD_LOG] User found: ${user.email}`);
+
     // Get reset token
     const resetToken = user.getResetPasswordToken();
-
     await user.save({ validateBeforeSave: false });
+    console.log(`[FORGOT_PASSWORD_LOG] Password reset token generated successfully.`);
 
     // Determine the client origin dynamically based on request headers or fallback to config
     let origin = req.get("origin") || req.get("referer");
@@ -249,23 +253,28 @@ export const forgotPassword = async (req, res, next) => {
     const resetUrl = `${clientOrigin}/reset-password/${resetToken}`;
 
     try {
+      console.log(`[FORGOT_PASSWORD_LOG] SMTP sending started to email: ${user.email} with URL: ${resetUrl}`);
       await sendPasswordResetEmail(user, resetUrl);
+      console.log(`[FORGOT_PASSWORD_LOG] SMTP send success for email: ${user.email}`);
       
-      res.status(200).json({ success: true, data: "Email sent" });
+      console.log(`[FORGOT_PASSWORD_LOG] Final response sent successfully to: ${user.email}`);
+      return res.status(200).json({ success: true, data: "Email sent" });
     } catch (err) {
-      console.error("[FORGOT_PASSWORD_ERROR]:", err);
+      console.error(`[FORGOT_PASSWORD_LOG] SMTP send failed for email: ${user.email}. Error:`, err);
+      
+      // Cleanup token fields in DB so they don't linger
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
-
       await user.save({ validateBeforeSave: false });
 
-      const message = process.env.NODE_ENV === "development" 
-        ? `Email could not be sent: ${err.message}` 
-        : "Email could not be sent. Please contact support.";
-        
-      return res.status(500).json({ success: false, message });
+      console.log(`[FORGOT_PASSWORD_LOG] Final response sent (error) to: ${user.email}`);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Email service temporarily unavailable" 
+      });
     }
   } catch (error) {
+    console.error(`[FORGOT_PASSWORD_LOG] Unexpected error inside forgotPassword:`, error);
     next(error);
   }
 };
