@@ -4,6 +4,8 @@ import Payment from "../models/Payment.js";
 import Registration from "../models/Registration.js";
 import Event from "../models/Event.js";
 import User from "../models/User.js";
+import Coupon from "../models/Coupon.js";
+import Notification from "../models/Notification.js";
 import { sendRegistrationConfirmationEmail } from "../utils/emailUtils.js";
 
 // Initialize Razorpay
@@ -23,7 +25,7 @@ console.log("PAYMENT_DEBUG: Razorpay instance initialized");
 export const createOrder = async (req, res) => {
   console.log("PAYMENT_DEBUG: createOrder body:", JSON.stringify(req.body, null, 2));
   try {
-    const { eventId, registrationData } = req.body;
+    const { eventId, registrationData, couponCode } = req.body;
 
     if (!eventId) {
       console.log("PAYMENT_DEBUG: Missing eventId");
@@ -67,7 +69,135 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    console.log(`PAYMENT_DEBUG: Final Fee: ${finalFee} (Discount: ${discountApplied}%)`);
+    console.log(`PAYMENT_DEBUG: After Membership Discount Fee: ${finalFee} (Discount: ${discountApplied}%)`);
+
+    // COUPON LOGIC
+    let couponDiscount = 0;
+    let appliedCoupon = null;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+      if (!coupon) {
+        return res.status(404).json({ success: false, message: "Coupon not found" });
+      }
+      if (!coupon.isActive) {
+        return res.status(400).json({ success: false, message: "Coupon is not active" });
+      }
+      if (new Date(coupon.expiryDate) < new Date()) {
+        return res.status(400).json({ success: false, message: "Coupon has expired" });
+      }
+      if (coupon.appliesTo !== "both" && coupon.appliesTo !== "event") {
+        return res.status(400).json({ success: false, message: "Coupon is not valid for event registrations" });
+      }
+      if (coupon.applicableEvents && coupon.applicableEvents.length > 0) {
+        const isMatch = coupon.applicableEvents.some(id => id.toString() === event._id.toString());
+        if (!isMatch) {
+          return res.status(400).json({ success: false, message: "Coupon is not applicable for this event" });
+        }
+      }
+      if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
+        return res.status(400).json({ success: false, message: "Coupon usage limit has been reached" });
+      }
+      if (req.user) {
+        const userUsage = coupon.usersUsed.find(u => u.user.toString() === req.user._id.toString());
+        if (userUsage && userUsage.count >= coupon.perUserLimit) {
+          return res.status(400).json({ success: false, message: "You have reached your usage limit for this coupon" });
+        }
+      }
+
+      // Calculate coupon discount
+      if (coupon.discountType === "percentage") {
+        couponDiscount = Math.round((finalFee * coupon.discountValue) / 100);
+      } else {
+        couponDiscount = Math.min(coupon.discountValue, finalFee);
+      }
+      finalFee = Math.max(0, finalFee - couponDiscount);
+      appliedCoupon = coupon.code;
+      console.log(`PAYMENT_DEBUG: After Coupon Discount Fee: ${finalFee} (Coupon: ${appliedCoupon}, Saved: ${couponDiscount})`);
+    }
+
+    // ZERO-FEE BYPASS CHECKOUT
+    if (finalFee === 0) {
+      console.log("PAYMENT_DEBUG: Final fee is 0, performing Free Bypass Registration...");
+      const freeOrderId = `FREE_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+      const bookingId = `OC${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      
+      const payment = await Payment.create({
+        event: event._id,
+        user: req.user ? req.user._id : null,
+        razorpayOrderId: freeOrderId,
+        amount: 0,
+        status: "paid",
+        paymentDetails: {
+          registrationData,
+          discountApplied,
+          originalFee: event.eventFee,
+          membershipType: req.user && req.user.activeMembership ? req.user.activeMembership.membershipType : "NONE",
+          couponCode: appliedCoupon,
+          couponDiscount
+        }
+      });
+
+      const registration = await Registration.create({
+        ...registrationData,
+        user: req.user ? req.user._id : null,
+        event: event._id,
+        bookingId,
+        razorpayOrderId: freeOrderId,
+        paymentStatus: "paid",
+        registrationStatus: "approved",
+        originalPrice: event.eventFee,
+        discountedPrice: 0,
+        membershipType: req.user && req.user.activeMembership ? req.user.activeMembership.membershipType : "NONE"
+      });
+
+      payment.registration = registration._id;
+      await payment.save();
+
+      // Increment event participants
+      await Event.findByIdAndUpdate(event._id, { $inc: { currentParticipants: 1 } });
+
+      // Track Coupon usage if applied
+      if (appliedCoupon) {
+        const coupon = await Coupon.findOne({ code: appliedCoupon });
+        if (coupon) {
+          coupon.usedCount += 1;
+          if (req.user) {
+            const userIndex = coupon.usersUsed.findIndex(u => u.user.toString() === req.user._id.toString());
+            if (userIndex > -1) {
+              coupon.usersUsed[userIndex].count += 1;
+            } else {
+              coupon.usersUsed.push({ user: req.user._id, count: 1 });
+            }
+          }
+          await coupon.save();
+        }
+      }
+
+      // Create Success Notification
+      if (req.user) {
+        await Notification.create({
+          userId: req.user._id,
+          title: "Event Registered!",
+          message: `Congratulations! You are successfully registered for the event: ${event.title}`,
+          type: "event",
+          link: "/dashboard"
+        });
+      }
+
+      // Send confirmation email
+      try {
+        await sendRegistrationConfirmationEmail(registration, event);
+      } catch (emailError) {
+        console.error(`PAYMENT_WARN: Email failed but registration succeeded:`, emailError.message);
+      }
+
+      return res.status(200).json({
+        success: true,
+        isFree: true,
+        bookingId
+      });
+    }
 
     const amount = finalFee * 100; // Amount in paise
     console.log("PAYMENT_DEBUG: Creating Razorpay order for amount:", amount);
@@ -98,7 +228,9 @@ export const createOrder = async (req, res) => {
         registrationData,
         discountApplied,
         originalFee: event.eventFee,
-        membershipType: req.user && req.user.activeMembership ? req.user.activeMembership.membershipType : "NONE"
+        membershipType: req.user && req.user.activeMembership ? req.user.activeMembership.membershipType : "NONE",
+        couponCode: appliedCoupon,
+        couponDiscount
       }
     });
     console.log("PAYMENT_DEBUG: Payment record created");
@@ -191,6 +323,34 @@ export const verifyPayment = async (req, res) => {
         $inc: { currentParticipants: 1 }
       });
       console.log("PAYMENT_DEBUG: Event participant count incremented");
+
+      // Track Coupon usage if applied
+      if (payment.paymentDetails && payment.paymentDetails.couponCode) {
+        const coupon = await Coupon.findOne({ code: payment.paymentDetails.couponCode.toUpperCase() });
+        if (coupon) {
+          coupon.usedCount += 1;
+          if (payment.user) {
+            const userIndex = coupon.usersUsed.findIndex(u => u.user.toString() === payment.user.toString());
+            if (userIndex > -1) {
+              coupon.usersUsed[userIndex].count += 1;
+            } else {
+              coupon.usersUsed.push({ user: payment.user, count: 1 });
+            }
+          }
+          await coupon.save();
+        }
+      }
+
+      // Create Success Notification
+      if (payment.user) {
+        await Notification.create({
+          userId: payment.user,
+          title: "Event Registered!",
+          message: `Congratulations! You are successfully registered for the event: ${event.title}`,
+          type: "event",
+          link: "/dashboard"
+        });
+      }
 
       // Send email (wrapped in try-catch so email sandbox restrictions don't block registration success)
       try {

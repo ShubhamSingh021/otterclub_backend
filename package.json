@@ -9,7 +9,9 @@
     "seed": "node src/seed/seed.js",
     "seed:admin": "node src/seed/adminSeed.js",
     "seed:events": "node src/seed/eventSeed.js",
-    "seed:community": "node src/seed/communitySeed.js"
+    "seed:community": "node src/seed/communitySeed.js",
+    "seed:notifications": "node src/seed/notificationSeed.js",
+    "seed:coupons": "node src/seed/couponSeed.js"
   },
   "keywords": [],
   "author": "",

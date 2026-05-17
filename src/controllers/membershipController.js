@@ -3,6 +3,8 @@ import env from "../config/env.js";
 import Membership from "../models/Membership.js";
 import User from "../models/User.js";
 import MembershipPlan from "../models/MembershipPlan.js";
+import Coupon from "../models/Coupon.js";
+import Notification from "../models/Notification.js";
 import crypto from "crypto";
 import { 
   sendMembershipPurchaseEmail, 
@@ -20,7 +22,7 @@ const razorpay = new Razorpay({
 // @access  Private
 export const createMembershipOrder = async (req, res, next) => {
   try {
-    const { planType, isUpgrade, isRenewal } = req.body;
+    const { planType, isUpgrade, isRenewal, couponCode } = req.body;
     console.log("ORDER_CREATE: Received request for plan:", planType);
     const plan = await MembershipPlan.findOne({ name: planType, active: true });
 
@@ -76,6 +78,160 @@ export const createMembershipOrder = async (req, res, next) => {
       }
     }
 
+    // COUPON LOGIC
+    let couponDiscount = 0;
+    let appliedCoupon = null;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+      if (!coupon) {
+        res.status(404);
+        throw new Error("Coupon not found");
+      }
+      if (!coupon.isActive) {
+        res.status(400);
+        throw new Error("Coupon is not active");
+      }
+      if (new Date(coupon.expiryDate) < new Date()) {
+        res.status(400);
+        throw new Error("Coupon has expired");
+      }
+      if (coupon.appliesTo !== "both" && coupon.appliesTo !== "membership") {
+        res.status(400);
+        throw new Error("Coupon is not valid for memberships");
+      }
+      if (coupon.applicablePlans && coupon.applicablePlans.length > 0) {
+        const isMatch = coupon.applicablePlans.some(p => p.toUpperCase() === planType.toUpperCase());
+        if (!isMatch) {
+          res.status(400);
+          throw new Error("Coupon is not applicable for this membership plan");
+        }
+      }
+      if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
+        res.status(400);
+        throw new Error("Coupon usage limit has been reached");
+      }
+      const userUsage = coupon.usersUsed.find(u => u.user.toString() === req.user._id.toString());
+      if (userUsage && userUsage.count >= coupon.perUserLimit) {
+        res.status(400);
+        throw new Error("You have reached your usage limit for this coupon");
+      }
+
+      // Calculate coupon discount
+      if (coupon.discountType === "percentage") {
+        couponDiscount = Math.round((finalAmount * coupon.discountValue) / 100);
+      } else {
+        couponDiscount = Math.min(coupon.discountValue, finalAmount);
+      }
+      finalAmount = Math.max(0, finalAmount - couponDiscount);
+      appliedCoupon = coupon.code;
+      console.log(`ORDER_CREATE: Applied coupon ${appliedCoupon}, new final amount is ${finalAmount}`);
+    }
+
+    // ZERO-COST BYPASS ACTIVATION
+    if (finalAmount === 0) {
+      console.log("MEMBERSHIP_ORDER: Free coupon bypass activation...");
+      let membership;
+      const freeOrderId = `FREE_MS_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+      const freePaymentId = `PAY_FREE_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+
+      if (isUpgrade && user.activeMembership) {
+        membership = user.activeMembership;
+        membership.upgradeHistory.push({
+          from: membership.membershipType,
+          to: planType,
+          price: plan.price - membership.price,
+        });
+
+        membership.membershipType = planType;
+        membership.price = plan.price;
+        membership.benefits = plan.benefits;
+        membership.razorpayPaymentId = freePaymentId;
+        
+        await membership.save();
+        try {
+          await sendMembershipUpgradeEmail(user, membership);
+        } catch (emailError) {
+          console.error(`MEMBERSHIP_WARN: Upgrade email failed:`, emailError.message);
+        }
+      } else if (isRenewal && user.activeMembership) {
+        membership = user.activeMembership;
+        const currentExpiry = new Date(membership.expiryDate);
+        currentExpiry.setDate(currentExpiry.getDate() + (plan.validityDays || 30));
+        membership.expiryDate = currentExpiry;
+        membership.razorpayPaymentId = freePaymentId;
+        membership.membershipStatus = "active";
+        
+        await membership.save();
+        try {
+          await sendMembershipRenewEmail(user, membership);
+        } catch (emailError) {
+          console.error(`MEMBERSHIP_WARN: Renewal email failed:`, emailError.message);
+        }
+      } else {
+        const startDate = new Date();
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + (plan.validityDays || 30));
+
+        membership = await Membership.create({
+          user: req.user._id,
+          userName: req.user.name,
+          email: req.user.email,
+          phone: req.user.phone,
+          membershipType: planType,
+          price: plan.price,
+          startDate,
+          expiryDate,
+          razorpayOrderId: freeOrderId,
+          razorpayPaymentId: freePaymentId,
+          paymentStatus: "paid",
+          membershipStatus: "active",
+          benefits: plan.benefits,
+        });
+
+        await User.findByIdAndUpdate(req.user._id, {
+          activeMembership: membership._id,
+          role: "member",
+        });
+
+        try {
+          await sendMembershipPurchaseEmail(user, membership);
+        } catch (emailError) {
+          console.error(`MEMBERSHIP_WARN: Purchase email failed:`, emailError.message);
+        }
+      }
+
+      // Track Coupon usage
+      if (appliedCoupon) {
+        const coupon = await Coupon.findOne({ code: appliedCoupon });
+        if (coupon) {
+          coupon.usedCount += 1;
+          const userIndex = coupon.usersUsed.findIndex(u => u.user.toString() === req.user._id.toString());
+          if (userIndex > -1) {
+            coupon.usersUsed[userIndex].count += 1;
+          } else {
+            coupon.usersUsed.push({ user: req.user._id, count: 1 });
+          }
+          await coupon.save();
+        }
+      }
+
+      // Send Success Notification
+      await Notification.create({
+        userId: req.user._id,
+        title: "Membership Active!",
+        message: `Welcome to Otter ${planType}! Your membership has been activated successfully.`,
+        type: "membership",
+        link: "/dashboard"
+      });
+
+      return res.status(200).json({
+        success: true,
+        isFree: true,
+        data: membership,
+      });
+    }
+
     const options = {
       amount: Math.round(finalAmount * 100), // amount in the smallest currency unit
       currency: "INR",
@@ -84,6 +240,8 @@ export const createMembershipOrder = async (req, res, next) => {
         planType,
         isUpgrade: isUpgrade ? "yes" : "no",
         isRenewal: isRenewal ? "yes" : "no",
+        couponCode: appliedCoupon || "",
+        couponDiscount: couponDiscount.toString()
       },
     };
 
@@ -109,7 +267,7 @@ export const createMembershipOrder = async (req, res, next) => {
 // @access  Private
 export const verifyMembershipPayment = async (req, res, next) => {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planType, isUpgrade, isRenewal } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planType, isUpgrade, isRenewal, couponCode } = req.body;
 
     const sign = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSign = crypto
@@ -199,6 +357,30 @@ export const verifyMembershipPayment = async (req, res, next) => {
           console.error(`MEMBERSHIP_WARN: Purchase email failed:`, emailError.message);
         }
       }
+
+      // Track Coupon usage if applied
+      if (couponCode) {
+        const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+        if (coupon) {
+          coupon.usedCount += 1;
+          const userIndex = coupon.usersUsed.findIndex(u => u.user.toString() === req.user._id.toString());
+          if (userIndex > -1) {
+            coupon.usersUsed[userIndex].count += 1;
+          } else {
+            coupon.usersUsed.push({ user: req.user._id, count: 1 });
+          }
+          await coupon.save();
+        }
+      }
+
+      // Send Success Notification
+      await Notification.create({
+        userId: req.user._id,
+        title: "Membership Active!",
+        message: `Welcome to Otter ${planType}! Your membership has been activated successfully.`,
+        type: "membership",
+        link: "/dashboard"
+      });
 
       res.status(200).json({
         success: true,
