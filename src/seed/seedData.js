@@ -25,8 +25,8 @@ export const siteSettingsSeed = {
     mapUrl: "https://maps.google.com",
   },
   globalCta: {
-    label: "Become a Member",
-    href: "/membership",
+    label: "Get Started",
+    href: "/register",
   },
   isActive: true,
 };
