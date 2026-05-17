@@ -88,6 +88,9 @@ export const sendMembershipRenewEmail = async (user, membership) => {
 };
 
 export const sendMembershipExpiryReminder = async (user, membership) => {
+  const allowedOrigins = env.clientOrigin || [];
+  const clientOrigin = allowedOrigins.find(o => !o.includes("localhost") && !o.includes("127.0.0.1")) || allowedOrigins[0] || "http://localhost:5173";
+
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
       <h2 style="color: #ff4b2b; text-align: center;">Membership Expiring Soon!</h2>
@@ -95,7 +98,7 @@ export const sendMembershipExpiryReminder = async (user, membership) => {
       <p>Your membership is set to expire on <strong>${new Date(membership.expiryDate).toLocaleDateString()}</strong>.</p>
       <p>Renew now to continue enjoying your exclusive benefits without interruption.</p>
       <div style="text-align: center; margin: 30px 0;">
-        <a href="${env.clientOrigin[0]}/membership" style="background: #40e0d0; color: #061323; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Renew Now</a>
+        <a href="${clientOrigin}/membership" style="background: #40e0d0; color: #061323; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Renew Now</a>
       </div>
     </div>
   `;

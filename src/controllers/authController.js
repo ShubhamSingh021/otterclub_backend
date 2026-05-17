@@ -218,8 +218,35 @@ export const forgotPassword = async (req, res, next) => {
 
     await user.save({ validateBeforeSave: false });
 
+    // Determine the client origin dynamically based on request headers or fallback to config
+    let origin = req.get("origin") || req.get("referer");
+    
+    // Clean origin (remove trailing slash and path components)
+    if (origin) {
+      origin = origin.replace(/\/$/, "");
+      try {
+        const originUrl = new URL(origin);
+        origin = originUrl.origin;
+      } catch (e) {
+        // Fallback to simple string if URL parsing fails
+      }
+    }
+
+    const allowedOrigins = env.clientOrigin || [];
+    let clientOrigin = allowedOrigins[0] || "http://localhost:5173";
+
+    if (origin && allowedOrigins.includes(origin)) {
+      clientOrigin = origin;
+    } else {
+      // Find the first Vercel/production origin in the list, or fallback to the first allowed origin
+      const prodOrigin = allowedOrigins.find(o => !o.includes("localhost") && !o.includes("127.0.0.1"));
+      if (prodOrigin) {
+        clientOrigin = prodOrigin;
+      }
+    }
+
     // Create reset URL (Frontend URL)
-    const resetUrl = `${env.clientOrigin[0]}/reset-password/${resetToken}`;
+    const resetUrl = `${clientOrigin}/reset-password/${resetToken}`;
 
     try {
       await sendPasswordResetEmail(user, resetUrl);
