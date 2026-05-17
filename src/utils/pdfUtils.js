@@ -42,7 +42,7 @@ export const generateCertificate = (registration, event, stream) => {
   doc.fillColor("#40e0d0")
      .fontSize(40)
      .font("Helvetica-Bold")
-     .text(registration.userName.toUpperCase(), 0, 270, { align: "center" });
+     .text((registration.fullName || "MEMBER").toUpperCase(), 0, 270, { align: "center" });
 
   doc.fillColor("#ffffff")
      .fontSize(20)

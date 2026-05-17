@@ -49,7 +49,10 @@ export const getRegistrationQR = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: qrCode
+      data: {
+        qrCode,
+        registration
+      }
     });
   } catch (error) {
     next(error);
@@ -218,7 +221,7 @@ export const verifyRegistrationQR = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Invalid ticket: Registration not found" });
     }
 
-    if (registration.paymentStatus !== 'completed') {
+    if (registration.paymentStatus !== 'completed' && registration.paymentStatus !== 'paid') {
       return res.status(400).json({ success: false, message: "Payment not completed for this ticket" });
     }
 
@@ -232,9 +235,9 @@ export const verifyRegistrationQR = async (req, res, next) => {
 
     return res.status(200).json({
       success: true,
-      message: `Attendance marked for ${registration.userName}`,
+      message: `Attendance marked for ${registration.fullName}`,
       data: {
-        userName: registration.userName,
+        userName: registration.fullName,
         eventTitle: registration.event?.title,
         bookingId: registration.bookingId
       }

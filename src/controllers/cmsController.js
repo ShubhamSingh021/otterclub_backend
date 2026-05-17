@@ -11,13 +11,30 @@ import User from "../models/User.js";
 // @route   POST /api/v1/cms/hero
 export const updateHeroSection = async (req, res) => {
   try {
-    const { heroTitle, heroSubtitle, primaryCtaText, primaryCtaLink, secondaryCtaText, secondaryCtaLink } = req.body;
+    const { 
+      heroTitle, 
+      heroSubtitle, 
+      primaryCtaText, 
+      primaryCtaLink, 
+      secondaryCtaText, 
+      secondaryCtaLink,
+      primaryCtaLabel,
+      primaryCtaHref,
+      secondaryCtaLabel,
+      secondaryCtaHref
+    } = req.body;
     
     const updateData = {
       title: heroTitle,
       subtitle: heroSubtitle,
-      primaryCta: { label: primaryCtaText, href: primaryCtaLink },
-      secondaryCta: { label: secondaryCtaText, href: secondaryCtaLink },
+      primaryCta: { 
+        label: primaryCtaText || primaryCtaLabel, 
+        href: primaryCtaLink || primaryCtaHref 
+      },
+      secondaryCta: { 
+        label: secondaryCtaText || secondaryCtaLabel, 
+        href: secondaryCtaLink || secondaryCtaHref 
+      },
       isActive: true
     };
 

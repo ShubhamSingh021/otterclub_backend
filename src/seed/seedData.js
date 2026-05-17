@@ -1,15 +1,16 @@
 export const siteSettingsSeed = {
-  siteName: "Summit Sports & Community Club",
-  siteTagline: "Train stronger. Connect deeper. Grow together.",
+  siteName: "Otter Society",
+  siteTagline: "PREMIUM SPORTS COMMUNITY",
   logoUrl:
     "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=600&q=80",
   navigationLinks: [
-    { label: "Home", href: "#home", order: 1 },
-    { label: "About", href: "#about", order: 2 },
-    { label: "Why Join", href: "#why-join", order: 3 },
-    { label: "Events", href: "#events", order: 4 },
-    { label: "Testimonials", href: "#testimonials", order: 5 },
-    { label: "Contact", href: "#contact", order: 6 },
+    { label: "Home", href: "/#home", order: 1 },
+    { label: "Membership", href: "/membership", order: 2 },
+    { label: "Events", href: "/#events", order: 3 },
+    { label: "Community", href: "/community", order: 4 },
+    { label: "About", href: "/#about", order: 5 },
+    { label: "Testimonials", href: "/#testimonials", order: 6 },
+    { label: "Contact", href: "/#contact", order: 7 },
   ],
   socialLinks: [
     { label: "Instagram", href: "https://instagram.com", order: 1 },
@@ -17,15 +18,15 @@ export const siteSettingsSeed = {
     { label: "LinkedIn", href: "https://linkedin.com", order: 3 },
   ],
   contact: {
-    email: "hello@summitsportsclub.dev",
+    email: "hello@ottersociety.dev",
     phone: "+91 90000 12345",
     whatsapp: "+91 90000 12345",
     address: "24 Arena Drive, Sector 5, Bengaluru",
     mapUrl: "https://maps.google.com",
   },
   globalCta: {
-    label: "Book Facility Tour",
-    href: "#contact",
+    label: "Become a Member",
+    href: "/membership",
   },
   isActive: true,
 };
@@ -58,7 +59,7 @@ export const aboutContentSeed = {
   sectionLabel: "About The Club",
   heading: "Built for performance, wellness, and meaningful community.",
   description:
-    "Summit blends premium sports infrastructure with coaching, events, and social spaces designed for all skill levels.",
+    "Otter Society blends premium sports infrastructure with coaching, events, and social spaces designed for all skill levels.",
   keyPoints: [
     "Specialized coaching paths for youth, adults, and advanced players.",
     "Integrated fitness and recovery zones for complete athletic development.",
@@ -157,7 +158,7 @@ export const homeSectionsSeed = [
     subtitle:
       "Talk to our team for membership plans, coaching schedules, and event participation details.",
     ctaLabel: "Talk To The Team",
-    ctaHref: "mailto:hello@summitsportsclub.dev",
+    ctaHref: "mailto:hello@ottersociety.dev",
     order: 4,
     isActive: true,
   },
@@ -165,10 +166,10 @@ export const homeSectionsSeed = [
 
 export const testimonialsSeed = [
   {
-    personName: "Youth Program Parent",
-    personRole: "Parent Community",
+    personName: "Rajesh Kumar",
+    personRole: "Youth Soccer Parent",
     quote:
-      "The coaching structure and communication are excellent. We can clearly see skill progress week by week.",
+      "The soccer development program at Otter Society completely changed my son's game. The coaches don't just teach elite techniques; they build confidence, discipline, and outstanding team player values.",
     avatarUrl:
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
     rating: 5,
@@ -176,10 +177,21 @@ export const testimonialsSeed = [
     isActive: true,
   },
   {
-    personName: "Corporate Wellness Lead",
-    personRole: "Partner Organization",
+    personName: "Priya Sharma",
+    personRole: "Weekend Badminton League Champion",
     quote:
-      "Their team made our employee sports program easy to launch and consistently professional in execution.",
+      "I love the Saturday match nights! The competitive atmosphere is electric, the scoring is real-time, and the club has created a fantastic community where players connect post-game over drinks.",
+    avatarUrl:
+      "https://images.unsplash.com/photo-1546961329-78bef0414d7c?auto=format&fit=crop&w=400&q=80",
+    rating: 5,
+    isFeatured: true,
+    isActive: true,
+  },
+  {
+    personName: "David Miller",
+    personRole: "Corporate Wellness Organizer",
+    quote:
+      "We hosted our corporate athletic tournament at Otter Society and it was absolute perfection. Highly professional coordinators, premium indoor courts, and stellar hospitality that left our employees thrilled.",
     avatarUrl:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
     rating: 5,
@@ -187,12 +199,23 @@ export const testimonialsSeed = [
     isActive: true,
   },
   {
-    personName: "Adult Performance Member",
-    personRole: "Club Member",
+    personName: "Ananya Sen",
+    personRole: "Marathon & Physical Prep Trainee",
     quote:
-      "From facilities to coaching quality, the overall environment keeps me disciplined and motivated year-round.",
+      "The early morning track coaching and customized physical prep sessions have taken my marathon prep to the next level. Having professional recovery services right here on-site is a massive advantage.",
     avatarUrl:
-      "https://images.unsplash.com/photo-1546961329-78bef0414d7c?auto=format&fit=crop&w=400&q=80",
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
+    rating: 5,
+    isFeatured: true,
+    isActive: true,
+  },
+  {
+    personName: "Marcus Vance",
+    personRole: "Club Volleyball Captain",
+    quote:
+      "We've been training here for three seasons now. The courts are always immaculate, the social mixers connect us with amazing players, and the staff treated our squad like family from day one.",
+    avatarUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
     rating: 5,
     isFeatured: true,
     isActive: true,

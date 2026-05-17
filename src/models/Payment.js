@@ -7,6 +7,11 @@ const paymentSchema = new mongoose.Schema(
       ref: "Registration",
       required: false,
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+    },
     event: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Event",

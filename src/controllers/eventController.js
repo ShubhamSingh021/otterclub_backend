@@ -44,19 +44,33 @@ export const updateEvent = async (req, res, next) => {
 
     const updateData = { ...req.body };
     
-    // Prevent clearing galleryImages if the frontend sends it as empty string/array in req.body
-    // but no new files are uploaded. We only update if files are present.
-    if (updateData.galleryImages === "" || (Array.isArray(updateData.galleryImages) && updateData.galleryImages.length === 0)) {
-      delete updateData.galleryImages;
+    // Process files
+    if (req.files && req.files.eventImage) {
+      updateData.eventImage = req.files.eventImage[0].path;
     }
 
-    if (req.files) {
-      if (req.files.eventImage) {
-        updateData.eventImage = req.files.eventImage[0].path;
+    let existingGallery = [];
+    let hasExistingGalleryField = false;
+
+    if (req.body.existingGallery) {
+      hasExistingGalleryField = true;
+      try {
+        existingGallery = JSON.parse(req.body.existingGallery);
+      } catch (err) {
+        existingGallery = Array.isArray(req.body.existingGallery)
+          ? req.body.existingGallery
+          : [req.body.existingGallery];
       }
-      if (req.files.galleryImages) {
-        updateData.galleryImages = req.files.galleryImages.map((file) => file.path);
-      }
+      delete updateData.existingGallery;
+    }
+
+    let newGalleryImages = [];
+    if (req.files && req.files.galleryImages) {
+      newGalleryImages = req.files.galleryImages.map((file) => file.path);
+    }
+
+    if (hasExistingGalleryField || (req.files && req.files.galleryImages)) {
+      updateData.galleryImages = [...existingGallery, ...newGalleryImages];
     }
 
     event = await Event.findByIdAndUpdate(req.params.id, updateData, {

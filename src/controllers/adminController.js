@@ -20,8 +20,8 @@ export const getAnalytics = async (req, res, next) => {
     ]);
 
     const eventStats = await Registration.aggregate([
-      { $match: { paymentStatus: 'completed' } },
-      { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$amountPaid' } } }
+      { $match: { paymentStatus: { $in: ['paid', 'completed'] } } },
+      { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: '$discountedPrice' } } }
     ]);
 
     const totalRevenue = (membershipStats.reduce((acc, curr) => acc + curr.revenue, 0)) + 
@@ -44,7 +44,7 @@ export const getAnalytics = async (req, res, next) => {
 
     // 3. Registration Trends
     const eventTrends = await Registration.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo } } },
+      { $match: { paymentStatus: { $in: ['paid', 'completed'] }, createdAt: { $gte: sixMonthsAgo } } },
       {
         $group: {
           _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } },
@@ -61,7 +61,8 @@ export const getAnalytics = async (req, res, next) => {
           totalUsers,
           totalMembers,
           totalRevenue,
-          totalRegistrations: eventStats[0]?.count || 0
+          totalRegistrations: eventStats[0]?.count || 0,
+          eventRevenue: eventStats[0]?.revenue || 0
         },
         membershipDistribution: membershipStats,
         monthlyRevenue,

@@ -49,7 +49,7 @@ export const getEventTicketQRData = (registration, event) => {
     type: "event_ticket",
     registrationId: registration._id,
     bookingId: registration.bookingId,
-    userName: registration.userName,
+    userName: registration.fullName,
     eventTitle: event.title,
     eventDate: event.eventDate,
     status: registration.paymentStatus,

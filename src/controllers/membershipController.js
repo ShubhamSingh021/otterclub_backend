@@ -144,7 +144,11 @@ export const verifyMembershipPayment = async (req, res, next) => {
         membership.razorpayPaymentId = razorpay_payment_id;
         
         await membership.save();
-        await sendMembershipUpgradeEmail(user, membership);
+        try {
+          await sendMembershipUpgradeEmail(user, membership);
+        } catch (emailError) {
+          console.error(`MEMBERSHIP_WARN: Upgrade email failed:`, emailError.message);
+        }
       } else if (isRenewal && user.activeMembership) {
         membership = user.activeMembership;
         
@@ -156,7 +160,11 @@ export const verifyMembershipPayment = async (req, res, next) => {
         membership.membershipStatus = "active";
         
         await membership.save();
-        await sendMembershipRenewEmail(user, membership);
+        try {
+          await sendMembershipRenewEmail(user, membership);
+        } catch (emailError) {
+          console.error(`MEMBERSHIP_WARN: Renewal email failed:`, emailError.message);
+        }
       } else {
         // Create new membership record
         const startDate = new Date();
@@ -185,7 +193,11 @@ export const verifyMembershipPayment = async (req, res, next) => {
           role: "member",
         });
 
-        await sendMembershipPurchaseEmail(user, membership);
+        try {
+          await sendMembershipPurchaseEmail(user, membership);
+        } catch (emailError) {
+          console.error(`MEMBERSHIP_WARN: Purchase email failed:`, emailError.message);
+        }
       }
 
       res.status(200).json({

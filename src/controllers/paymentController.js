@@ -192,8 +192,12 @@ export const verifyPayment = async (req, res) => {
       });
       console.log("PAYMENT_DEBUG: Event participant count incremented");
 
-      // Send email
-      await sendRegistrationConfirmationEmail(registration, event);
+      // Send email (wrapped in try-catch so email sandbox restrictions don't block registration success)
+      try {
+        await sendRegistrationConfirmationEmail(registration, event);
+      } catch (emailError) {
+        console.error(`PAYMENT_WARN: Email failed but registration succeeded:`, emailError.message);
+      }
 
       res.status(200).json({ success: true, message: "Payment verified and registration complete" });
     } else {
