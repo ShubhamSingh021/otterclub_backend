@@ -37,7 +37,7 @@ export const heroContentSeed = {
   subtitle:
     "Explore professional-grade courts, structured training programs, and curated community experiences in one destination.",
   backgroundImageUrl:
-    "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1400&q=80",
+    "/hero-bg.png",
   primaryCta: {
     label: "Explore Membership",
     href: "#why-join",

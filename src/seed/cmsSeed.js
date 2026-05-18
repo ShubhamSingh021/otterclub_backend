@@ -20,7 +20,7 @@ const seedCMS = async () => {
       subtitle: "The premier sports community for athletes and enthusiasts. Push your limits, find your team, and dominate the field.",
       primaryCta: { label: "Join Now", href: "/register" },
       secondaryCta: { label: "View Events", href: "/events" },
-      backgroundImageUrl: "https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=2070",
+      backgroundImageUrl: "/hero-bg.png",
       isActive: true
     });
     console.log("Hero Content seeded.");
